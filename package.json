@@ -1,6 +1,6 @@
 {
   "name": "runrat",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "🐀 Dev-tool scavenger & command translator — finds tools, validates commands, fixes LLM mistakes before they hit the shell.",
   "bin": {
     "runrat": "./bin/setup"

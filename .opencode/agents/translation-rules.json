@@ -1,0 +1,165 @@
+{
+  "version": "1.0.0",
+  "patterns": [
+    {
+      "id": "apt-on-windows",
+      "match": "apt-get install|apt install",
+      "platforms": ["win32"],
+      "translate": "scoop install {package}",
+      "severity": "error",
+      "explanation": "apt-get is Linux-only. This is Windows — use scoop."
+    },
+    {
+      "id": "apt-on-macos",
+      "match": "apt-get install|apt install",
+      "platforms": ["darwin"],
+      "translate": "brew install {package}",
+      "severity": "error",
+      "explanation": "apt-get is Linux-only. This is macOS — use brew."
+    },
+    {
+      "id": "apt-update-on-windows",
+      "match": "apt-get update|apt update",
+      "platforms": ["win32"],
+      "translate": "",
+      "severity": "info",
+      "explanation": "apt-get update is Linux-only. Scoop auto-updates — no equivalent needed."
+    },
+    {
+      "id": "brew-on-windows",
+      "match": "brew install",
+      "platforms": ["win32"],
+      "translate": "scoop install {package}",
+      "severity": "error",
+      "explanation": "brew is macOS/Linux-only. This is Windows — use scoop."
+    },
+    {
+      "id": "scoop-on-macos",
+      "match": "scoop install",
+      "platforms": ["darwin", "linux"],
+      "translate": "brew install {package}",
+      "severity": "error",
+      "explanation": "scoop is Windows-only. Use brew."
+    },
+    {
+      "id": "sudo-on-windows",
+      "match": "^sudo ",
+      "platforms": ["win32"],
+      "translate": "",
+      "severity": "info",
+      "explanation": "sudo does not exist on Windows. Removed — run terminal as Administrator if elevated privileges are needed."
+    },
+    {
+      "id": "ampersand-chaining-win",
+      "match": "\\s&&\\s",
+      "platforms": ["win32"],
+      "translate": "; if ($?) { {next} }",
+      "severity": "error",
+      "explanation": "PowerShell does not support && chaining. Use ; if ($?) { } instead."
+    },
+    {
+      "id": "pip-standalone",
+      "match": "^pip install|^pip3 install",
+      "platforms": ["win32", "darwin", "linux"],
+      "translate": "{python} -m pip install {package}",
+      "severity": "warning",
+      "explanation": "Calling pip directly can use the wrong Python. Use 'python -m pip' instead."
+    },
+    {
+      "id": "sudo-npm-global",
+      "match": "sudo npm install -g|sudo npm i -g",
+      "platforms": ["darwin", "linux"],
+      "translate": "npm install -g {package}",
+      "severity": "warning",
+      "explanation": "sudo with npm -g breaks permissions. Configure npm prefix or use npx instead."
+    },
+    {
+      "id": "python-on-windows",
+      "match": "^python3 ",
+      "platforms": ["win32"],
+      "translate": "python {args}",
+      "severity": "warning",
+      "explanation": "Windows uses 'python' not 'python3'."
+    },
+    {
+      "id": "ls-on-windows",
+      "match": "^ls ",
+      "platforms": ["win32"],
+      "translate": "Get-ChildItem {args}",
+      "severity": "warning",
+      "explanation": "'ls' may not exist in PowerShell. Use 'Get-ChildItem' or 'dir'."
+    },
+    {
+      "id": "touch-on-windows",
+      "match": "^touch ",
+      "platforms": ["win32"],
+      "translate": "New-Item -ItemType File {args}",
+      "severity": "warning",
+      "explanation": "'touch' does not exist on Windows by default. Use 'New-Item -ItemType File'."
+    },
+    {
+      "id": "rm-rf-on-windows",
+      "match": "rm -rf",
+      "platforms": ["win32"],
+      "translate": "Remove-Item -Recurse -Force {path}",
+      "severity": "error",
+      "explanation": "'rm -rf' is Unix-only. Use 'Remove-Item -Recurse -Force' in PowerShell."
+    },
+    {
+      "id": "export-on-windows",
+      "match": "^export ",
+      "platforms": ["win32"],
+      "translate": "$env:{var} = \"{value}\"",
+      "severity": "error",
+      "explanation": "'export' is Unix-only. Use '$env:VAR = value' in PowerShell."
+    },
+    {
+      "id": "cp-on-windows",
+      "match": "^cp ",
+      "platforms": ["win32"],
+      "translate": "Copy-Item {args}",
+      "severity": "warning",
+      "explanation": "'cp' may not exist in PowerShell. Use 'Copy-Item'."
+    },
+    {
+      "id": "mv-on-windows",
+      "match": "^mv ",
+      "platforms": ["win32"],
+      "translate": "Move-Item {args}",
+      "severity": "warning",
+      "explanation": "'mv' may not exist in PowerShell. Use 'Move-Item'."
+    },
+    {
+      "id": "chmod-on-windows",
+      "match": "^chmod ",
+      "platforms": ["win32"],
+      "translate": "",
+      "severity": "info",
+      "explanation": "chmod is Unix-only and not needed on Windows. Command skipped."
+    },
+    {
+      "id": "which-on-windows",
+      "match": "^which ",
+      "platforms": ["win32"],
+      "translate": "where.exe {tool}",
+      "severity": "warning",
+      "explanation": "'which' is Unix. Use 'where.exe' on Windows."
+    },
+    {
+      "id": "cat-on-windows",
+      "match": "^cat ",
+      "platforms": ["win32"],
+      "translate": "Get-Content {args}",
+      "severity": "warning",
+      "explanation": "'cat' may not exist in PowerShell. Use 'Get-Content'."
+    },
+    {
+      "id": "grep-on-windows",
+      "match": "^grep ",
+      "platforms": ["win32"],
+      "translate": "Select-String {args}",
+      "severity": "warning",
+      "explanation": "'grep' may not exist in PowerShell. Use 'Select-String'."
+    }
+  ]
+}

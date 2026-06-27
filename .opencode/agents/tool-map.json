@@ -1,0 +1,82 @@
+{
+  "adb": {
+    "path": "C:/Users/korba/Android/Sdk/platform-tools/adb.exe",
+    "source": "android-sdk",
+    "category": "android"
+  },
+  "flutter": {
+    "path": "C:/Users/korba/scoop/apps/flutter/current/bin/flutter",
+    "source": "scoop",
+    "category": "flutter"
+  },
+  "dart": {
+    "path": "C:/Users/korba/scoop/apps/flutter/current/bin/dart",
+    "source": "scoop",
+    "category": "flutter"
+  },
+  "git": {
+    "path": "C:/Users/korba/scoop/shims/git.exe",
+    "source": "scoop",
+    "category": "vcs"
+  },
+  "node": {
+    "path": "C:/ProgramData/scoop/apps/nodejs-lts/current/node.exe",
+    "source": "scoop",
+    "category": "node"
+  },
+  "npm": {
+    "path": "C:/ProgramData/scoop/apps/nodejs-lts/current/bin/npm",
+    "source": "scoop",
+    "category": "node"
+  },
+  "npx": {
+    "path": "C:/ProgramData/scoop/apps/nodejs-lts/current/bin/npx",
+    "source": "scoop",
+    "category": "node"
+  },
+  "scoop": {
+    "path": "C:/Users/korba/scoop/shims/scoop",
+    "source": "scoop",
+    "category": "package-manager"
+  },
+  "gh": {
+    "path": "C:/Users/korba/scoop/shims/gh.exe",
+    "source": "scoop",
+    "category": "vcs"
+  },
+  "sqlite3": {
+    "path": "C:/Users/korba/Android/Sdk/platform-tools/sqlite3.exe",
+    "source": "android-sdk",
+    "category": "database"
+  },
+  "java": {
+    "path": "C:/Users/korba/scoop/apps/temurin17-jdk/current/bin/java.exe",
+    "source": "scoop",
+    "category": "java"
+  },
+  "javac": {
+    "path": "C:/Users/korba/scoop/apps/temurin17-jdk/current/bin/javac.exe",
+    "source": "scoop",
+    "category": "java"
+  },
+  "python": {
+    "path": "C:/Users/korba/AppData/Local/Programs/Python/Python312/python.exe",
+    "source": "path",
+    "category": "python"
+  },
+  "python3": {
+    "path": "C:/Users/korba/AppData/Local/Microsoft/WindowsApps/python3.exe",
+    "source": "path",
+    "category": "python"
+  },
+  "pip": {
+    "path": "C:/Users/korba/AppData/Local/Programs/Python/Python312/Scripts/pip.exe",
+    "source": "path",
+    "category": "python"
+  },
+  "pip3": {
+    "path": "C:/Users/korba/AppData/Local/Programs/Python/Python312/Scripts/pip3.exe",
+    "source": "path",
+    "category": "python"
+  }
+}
