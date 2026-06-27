@@ -1,0 +1,264 @@
+{
+  "flutter-analyze": {
+    "description": "Static analysis",
+    "platforms": {
+      "win32": "flutter analyze --fatal-warnings",
+      "darwin": "flutter analyze --fatal-warnings",
+      "linux": "flutter analyze --fatal-warnings"
+    },
+    "workdir": "app/",
+    "category": "flutter",
+    "args": [
+      {"flag": "--fatal-warnings", "description": "Treat warnings as errors"}
+    ]
+  },
+  "flutter-test": {
+    "description": "Run tests",
+    "platforms": {
+      "win32": "flutter test --no-pub",
+      "darwin": "flutter test --no-pub",
+      "linux": "flutter test --no-pub"
+    },
+    "workdir": "app/",
+    "category": "flutter",
+    "args": [
+      {"flag": "--no-pub", "description": "Skip pub get before running"}
+    ]
+  },
+  "flutter-run": {
+    "description": "Run app on connected device",
+    "platforms": {
+      "win32": "flutter run",
+      "darwin": "flutter run",
+      "linux": "flutter run"
+    },
+    "workdir": "app/",
+    "category": "flutter"
+  },
+  "flutter-build-apk": {
+    "description": "Build Android APK",
+    "platforms": {
+      "win32": "flutter build apk",
+      "darwin": "flutter build apk",
+      "linux": "flutter build apk"
+    },
+    "workdir": "app/",
+    "category": "flutter"
+  },
+  "flutter-build-web": {
+    "description": "Build for web",
+    "platforms": {
+      "win32": "flutter build web",
+      "darwin": "flutter build web",
+      "linux": "flutter build web"
+    },
+    "workdir": "app/",
+    "category": "flutter"
+  },
+  "flutter-pub-get": {
+    "description": "Install dependencies",
+    "platforms": {
+      "win32": "flutter pub get",
+      "darwin": "flutter pub get",
+      "linux": "flutter pub get"
+    },
+    "workdir": "app/",
+    "category": "flutter"
+  },
+  "flutter-pub-add": {
+    "description": "Add a dependency",
+    "platforms": {
+      "win32": "flutter pub add {package}",
+      "darwin": "flutter pub add {package}",
+      "linux": "flutter pub add {package}"
+    },
+    "workdir": "app/",
+    "category": "flutter"
+  },
+  "dart-format": {
+    "description": "Format Dart source files",
+    "platforms": {
+      "win32": "dart format --set-exit-if-changed lib/ test/",
+      "darwin": "dart format --set-exit-if-changed lib/ test/",
+      "linux": "dart format --set-exit-if-changed lib/ test/"
+    },
+    "workdir": "app/",
+    "category": "flutter"
+  },
+  "dart-run-build-runner": {
+    "description": "Run code generation with build_runner",
+    "platforms": {
+      "win32": "dart run build_runner build --delete-conflicting-outputs",
+      "darwin": "dart run build_runner build --delete-conflicting-outputs",
+      "linux": "dart run build_runner build --delete-conflicting-outputs"
+    },
+    "workdir": "app/",
+    "category": "flutter"
+  },
+  "git-status": {
+    "description": "Show working tree status",
+    "platforms": {
+      "win32": "git status",
+      "darwin": "git status",
+      "linux": "git status"
+    },
+    "category": "vcs"
+  },
+  "git-diff": {
+    "description": "Show changes",
+    "platforms": {
+      "win32": "git diff",
+      "darwin": "git diff",
+      "linux": "git diff"
+    },
+    "category": "vcs"
+  },
+  "git-add": {
+    "description": "Stage files",
+    "platforms": {
+      "win32": "git add {files}",
+      "darwin": "git add {files}",
+      "linux": "git add {files}"
+    },
+    "category": "vcs"
+  },
+  "git-commit": {
+    "description": "Commit staged changes",
+    "platforms": {
+      "win32": "git commit -m \"{message}\"",
+      "darwin": "git commit -m \"{message}\"",
+      "linux": "git commit -m \"{message}\""
+    },
+    "category": "vcs"
+  },
+  "git-push": {
+    "description": "Push to remote",
+    "platforms": {
+      "win32": "git push",
+      "darwin": "git push",
+      "linux": "git push"
+    },
+    "category": "vcs"
+  },
+  "git-log": {
+    "description": "Show commit log",
+    "platforms": {
+      "win32": "git log --oneline -10",
+      "darwin": "git log --oneline -10",
+      "linux": "git log --oneline -10"
+    },
+    "category": "vcs"
+  },
+  "npm-install": {
+    "description": "Install npm dependencies",
+    "platforms": {
+      "win32": "npm install",
+      "darwin": "npm install",
+      "linux": "npm install"
+    },
+    "category": "node"
+  },
+  "npm-run": {
+    "description": "Run npm script",
+    "platforms": {
+      "win32": "npm run {script}",
+      "darwin": "npm run {script}",
+      "linux": "npm run {script}"
+    },
+    "category": "node"
+  },
+  "npx": {
+    "description": "Run npm package binary",
+    "platforms": {
+      "win32": "npx {package}",
+      "darwin": "npx {package}",
+      "linux": "npx {package}"
+    },
+    "category": "node"
+  },
+  "adb-devices": {
+    "description": "List connected Android devices",
+    "platforms": {
+      "win32": "adb devices",
+      "darwin": "adb devices",
+      "linux": "adb devices"
+    },
+    "category": "android"
+  },
+  "adb-install": {
+    "description": "Install APK on device",
+    "platforms": {
+      "win32": "adb install {apk}",
+      "darwin": "adb install {apk}",
+      "linux": "adb install {apk}"
+    },
+    "category": "android"
+  },
+  "adb-logcat": {
+    "description": "View device logs",
+    "platforms": {
+      "win32": "adb logcat",
+      "darwin": "adb logcat",
+      "linux": "adb logcat"
+    },
+    "category": "android"
+  },
+  "adb-uninstall": {
+    "description": "Uninstall app from device",
+    "platforms": {
+      "win32": "adb uninstall {package}",
+      "darwin": "adb uninstall {package}",
+      "linux": "adb uninstall {package}"
+    },
+    "category": "android"
+  },
+  "scoop-install": {
+    "description": "Install package with Scoop",
+    "platforms": {
+      "win32": "scoop install {package}"
+    },
+    "category": "package-manager"
+  },
+  "scoop-update": {
+    "description": "Update Scoop and all apps",
+    "platforms": {
+      "win32": "scoop update; scoop update *"
+    },
+    "category": "package-manager"
+  },
+  "brew-install": {
+    "description": "Install package with Homebrew",
+    "platforms": {
+      "darwin": "brew install {package}",
+      "linux": "brew install {package}"
+    },
+    "category": "package-manager"
+  },
+  "python-pip-install": {
+    "description": "Install Python package",
+    "platforms": {
+      "win32": "python -m pip install {package}",
+      "darwin": "python3 -m pip install {package}",
+      "linux": "python3 -m pip install {package}"
+    },
+    "category": "python"
+  },
+  "docker-run": {
+    "description": "Run a Docker container",
+    "platforms": {
+      "win32": "docker run {args}",
+      "darwin": "docker run {args}",
+      "linux": "docker run {args}"
+    },
+    "category": "container"
+  },
+  "docker-compose-up": {
+    "description": "Start Docker Compose services",
+    "platforms": {
+      "win32": "docker compose up",
+      "darwin": "docker compose up",
+      "linux": "docker compose up"
+    },
+    "category": "container"
+  }
+}

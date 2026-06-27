@@ -1,35 +1,196 @@
 #!/usr/bin/env node
 const { execSync } = require('child_process');
-const { existsSync, mkdirSync, copyFileSync, writeFileSync } = require('fs');
-const { join } = require('path');
+const { existsSync, mkdirSync, copyFileSync, writeFileSync, readFileSync } = require('fs');
+const { join, dirname } = require('path');
 const os = require('os');
 
-const PLATFORM = os.platform(); // 'win32' | 'darwin' | 'linux'
+const PLATFORM = os.platform();
 const HOME = os.homedir();
-const AGENTS_DIR = join(process.cwd(), '.opencode', 'agents');
-const TEMPLATE = join(__dirname, '..', 'templates', 'dev-runner.md');
-const MAP_FILE = join(AGENTS_DIR, 'tool-map.json');
+const SCRIPT_DIR = __dirname;
+const REPO_ROOT = join(SCRIPT_DIR, '..');
+const KNOWLEDGE = join(REPO_ROOT, 'knowledge');
 
-// ── tools to discover ─────────────────────────────────────────────────
-const TOOLS = [
-  'adb', 'flutter', 'dart', 'git', 'node', 'npm', 'npx',
-  'gh', 'code', 'supabase', 'sqlite3', 'java', 'javac', 'gradle',
-  'python', 'python3', 'pip', 'pip3', 'docker', 'make',
-];
+// ── subcommand routing ──────────────────────────────────────────────
+const cmd = process.argv[2] || 'setup';
+const arg = process.argv.slice(3).join(' ');
 
-const CATEGORIES = {
-  adb: 'android', emulator: 'android', sdkmanager: 'android',
-  flutter: 'flutter', dart: 'flutter',
-  git: 'vcs', gh: 'vcs',
-  node: 'node', npm: 'node', npx: 'node', yarn: 'node', pnpm: 'node',
-  supabase: 'database', psql: 'database', sqlite3: 'database',
-  code: 'editor', nvim: 'editor', vim: 'editor',
-  java: 'java', javac: 'java', gradle: 'java', mvn: 'java',
-  python: 'python', python3: 'python', pip: 'python', pip3: 'python',
-  docker: 'container', make: 'build',
-};
+const routes = { check, setup, recipes, rules, help };
+if (routes[cmd]) routes[cmd](arg);
+else { console.log(`Unknown command: ${cmd}`); help(); }
 
-// ── cross-platform helpers ────────────────────────────────────────────
+// ── check ──────────────────────────────────────────────────────────
+function check(input) {
+  if (!input) { console.log('Usage: runrat check "<command>"'); return; }
+  console.log(`🐀 checking: ${input}\n`);
+
+  const changes = [];
+  let corrected = input;
+
+  // 1. Apply translation rules in order
+  const rules = loadJSON(join(KNOWLEDGE, 'translation-rules.json'));
+  if (rules) {
+    for (const rule of rules.patterns) {
+      if (!rule.platforms.includes(PLATFORM)) continue;
+
+      // Handle && chaining specially
+      if (rule.id === 'ampersand-chaining-win' && /\s*&&\s*/.test(corrected)) {
+        const parts = corrected.split(/\s*&&\s*/);
+        if (parts.length === 2) {
+          corrected = parts[0].trim() + '; if ($?) { ' + parts[1].trim() + ' }';
+        }
+        changes.push({ rule: rule.id, severity: rule.severity, why: rule.explanation });
+        continue;
+      }
+
+      // Generic pattern matching
+      const pattern = '(?:' + rule.match + ')';
+      const re = new RegExp('(?:^|;\\s*|&&\\s*)' + pattern, 'i');
+      const m = corrected.match(re);
+      if (!m) continue;
+
+      let replacement = rule.translate;
+      if (!replacement) {
+        corrected = corrected.replace(re, '').trim();
+      } else if (replacement.includes('{package}')) {
+        const pkgRe = new RegExp('(?:^|;\\s*|&&\\s*)' + pattern + '\\s+(\\S+)', 'i');
+        const pm = corrected.match(pkgRe);
+        const pkg = pm ? pm[1] : '';
+        replacement = replacement.replace('{package}', pkg);
+        replacement = replacement.replace('{python}', PLATFORM === 'win32' ? 'python' : 'python3');
+        corrected = corrected.replace(pkgRe, replacement);
+      } else if (replacement.includes('{args}')) {
+        const plainRe = new RegExp(pattern, 'i');
+        const args = m[0].replace(plainRe, '').trim();
+        replacement = replacement.replace('{args}', args ? ' ' + args : '');
+        corrected = corrected.replace(m[0], replacement);
+      } else if (replacement.includes('{var}')) {
+        const varRe = /export\s+(\w+)=([^\s;]+)/i;
+        const vm = corrected.match(varRe);
+        if (vm) {
+          replacement = replacement.replace('{var}', vm[1]).replace('{value}', vm[2]);
+          corrected = corrected.replace(varRe, replacement);
+        }
+      } else {
+        replacement = replacement.replace('{python}', PLATFORM === 'win32' ? 'python' : 'python3');
+        corrected = corrected.replace(m[0], replacement);
+      }
+      changes.push({ rule: rule.id, severity: rule.severity, why: rule.explanation });
+    }
+  }
+
+  // 2. Detect tools in the command
+  const tools = detectTools(input);
+  for (const tool of tools) {
+    const path = findTool(tool);
+    if (path) console.log(`  tool: ${tool} → ${path}`);
+    else console.log(`  tool: ${tool} → ✗ not found`);
+  }
+
+  // 3. Check recipes
+  const recipes = loadJSON(join(KNOWLEDGE, 'command-recipes.json'));
+  if (recipes) {
+    for (const [key, recipe] of Object.entries(recipes)) {
+      const cmdLower = corrected.toLowerCase();
+      const keyLower = key.replace(/-/g, ' ').toLowerCase();
+      if (cmdLower.includes(keyLower) && recipe.platforms[PLATFORM]) {
+        console.log(`  recipe: ${key} → ${recipe.platforms[PLATFORM]}`);
+      }
+    }
+  }
+
+  // 4. Output
+  console.log('');
+  if (changes.length > 0) {
+    console.log(`⚡ corrected (${changes.length} change${changes.length > 1 ? 's' : ''}):`);
+    for (const c of changes) {
+      const icon = c.severity === 'error' ? '⚡' : c.severity === 'warning' ? '⚠' : 'ℹ';
+      console.log(`  ${icon} ${c.rule}: ${c.why}`);
+    }
+    console.log(`\n  original:  ${input}`);
+    console.log(`  corrected: ${corrected}`);
+  } else {
+    console.log('✓ valid — no changes needed');
+  }
+}
+
+// ── setup ──────────────────────────────────────────────────────────
+function setup() {
+  const AGENTS_DIR = join(process.cwd(), '.opencode', 'agents');
+  if (!existsSync(AGENTS_DIR)) mkdirSync(AGENTS_DIR, { recursive: true });
+
+  console.log(`🐀 runrat setup (${PLATFORM})`);
+  console.log('');
+
+  // Copy knowledge files
+  for (const file of ['command-recipes.json', 'translation-rules.json']) {
+    const src = join(KNOWLEDGE, file);
+    const dst = join(AGENTS_DIR, file);
+    if (existsSync(src)) { copyFileSync(src, dst); console.log(`  ✓ ${file}`); }
+  }
+
+  // Tool discovery
+  console.log('\n  🔍 discovering tools...');
+  const toolMap = discoverAll();
+  writeFileSync(join(AGENTS_DIR, 'tool-map.json'), JSON.stringify(toolMap, null, 2));
+  let found = Object.keys(toolMap).length;
+  console.log(`  📦 ${found} tools found → tool-map.json`);
+
+  // Agent file
+  const tmpl = join(REPO_ROOT, 'templates', 'dev-runner.md');
+  if (existsSync(tmpl)) { copyFileSync(tmpl, join(AGENTS_DIR, 'dev-runner.md')); console.log('  ✓ agent installed'); }
+
+  console.log('\n  Restart opencode to load. 🐀');
+}
+
+// ── recipes ────────────────────────────────────────────────────────
+function recipes() {
+  const data = loadJSON(join(KNOWLEDGE, 'command-recipes.json'));
+  if (!data) return;
+  console.log(`🐀 ${Object.keys(data).length} recipes:\n`);
+  for (const [key, r] of Object.entries(data)) {
+    const cmd = r.platforms[PLATFORM] || r.platforms.win32 || Object.values(r.platforms)[0] || '—';
+    console.log(`  ${key}`);
+    console.log(`    ${cmd}`);
+    if (r.workdir) console.log(`    workdir: ${r.workdir}`);
+    console.log('');
+  }
+}
+
+// ── rules ──────────────────────────────────────────────────────────
+function rules() {
+  const data = loadJSON(join(KNOWLEDGE, 'translation-rules.json'));
+  if (!data) return;
+  const active = data.patterns.filter(r => r.platforms.includes(PLATFORM));
+  console.log(`🐀 ${active.length} active rules for ${PLATFORM}:\n`);
+  for (const r of active) {
+    const icon = r.severity === 'error' ? '⚡' : r.severity === 'warning' ? '⚠' : 'ℹ';
+    console.log(`  ${icon} ${r.id}`);
+    console.log(`    match: ${r.match}`);
+    console.log(`    fix:   ${r.translate || '(skip)'}`);
+    console.log(`    ${r.explanation}`);
+    console.log('');
+  }
+}
+
+// ── help ───────────────────────────────────────────────────────────
+function help() {
+  console.log(`
+🐀 runrat — dev-tool scavenger & command translator
+
+  runrat check "<command>"   Translate and validate a command
+  runrat setup               Full bootstrap (tools + recipes + rules)
+  runrat recipes             List known command recipes
+  runrat rules               List active translation rules
+  runrat help                This message
+`);
+}
+
+// ── helpers ────────────────────────────────────────────────────────
+
+function loadJSON(path) {
+  try { return JSON.parse(readFileSync(path, 'utf8')); }
+  catch { return null; }
+}
 
 function sh(cmd) {
   try { return execSync(cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim().split(/[\r\n]+/)[0]; }
@@ -41,98 +202,81 @@ function which(tool) {
   return sh(`which ${tool}`) || sh(`command -v ${tool}`);
 }
 
-function classify(path) {
-  if (!path) return '';
-  if (path.includes('scoop')) return 'scoop';
-  if (path.includes('Android') || path.includes('android')) return 'android-sdk';
-  if (path.includes('homebrew') || path.includes('/opt/homebrew')) return 'brew';
-  if (path.includes('/usr/bin') || path.includes('System32')) return 'system';
-  if (path.includes('/usr/local')) return 'local';
+function classify(p) {
+  if (!p) return 'unknown';
+  if (p.includes('scoop')) return 'scoop';
+  if (p.includes('Android') || p.includes('android')) return 'android-sdk';
+  if (p.includes('homebrew') || p.includes('/opt/homebrew')) return 'brew';
+  if (p.includes('/usr/bin') || p.includes('System32')) return 'system';
   return 'path';
 }
 
-// ── platform-specific discovery ───────────────────────────────────────
-
-function discoverWin(tool) {
-  // 1. PATH
+function findTool(tool) {
   let p = which(tool);
-  if (p) return { path: p, source: classify(p) };
-
-  // 2. Scoop shims
-  p = sh(`powershell -NoProfile -Command "Get-ChildItem -LiteralPath '${join(HOME, 'scoop', 'shims')}' -Filter '${tool}*' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1"`);
-  if (p) return { path: p, source: 'scoop' };
-
-  // 3. Scoop apps deep
-  p = sh(`powershell -NoProfile -Command "Get-ChildItem -LiteralPath '${join(HOME, 'scoop', 'apps')}' -Filter '${tool}.exe' -Recurse -Depth 3 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1"`);
-  if (p) return { path: p, source: 'scoop' };
-
-  // 4. Android SDK
-  for (const base of [join(HOME, 'Android', 'Sdk'), join(HOME, 'AppData', 'Local', 'Android', 'Sdk')]) {
-    p = sh(`powershell -NoProfile -Command "Get-ChildItem -LiteralPath '${base}' -Filter '${tool}.exe' -Recurse -Depth 4 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1"`);
-    if (p) return { path: p, source: 'android-sdk' };
-  }
-
-  return null;
-}
-
-function discoverUnix(tool) {
-  // 1. PATH
-  let p = which(tool);
-  if (p) return { path: p, source: classify(p) };
-
-  // 2. Brew (macOS)
-  if (PLATFORM === 'darwin') {
-    for (const prefix of ['/opt/homebrew/bin', '/usr/local/bin']) {
-      const candidate = join(prefix, tool);
-      if (existsSync(candidate)) return { path: candidate, source: 'brew' };
+  if (p) return p;
+  if (PLATFORM === 'win32') {
+    p = sh(`powershell -NoProfile -Command "Get-ChildItem -LiteralPath '${join(HOME, 'scoop', 'shims')}' -Filter '${tool}*' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1"`);
+    if (p) return p;
+    p = sh(`powershell -NoProfile -Command "Get-ChildItem -LiteralPath '${join(HOME, 'scoop', 'apps')}' -Filter '${tool}.exe' -Recurse -Depth 3 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1"`);
+    if (p) return p;
+    for (const base of [join(HOME, 'Android', 'Sdk'), join(HOME, 'AppData', 'Local', 'Android', 'Sdk')]) {
+      p = sh(`powershell -NoProfile -Command "Get-ChildItem -LiteralPath '${base}' -Filter '${tool}.exe' -Recurse -Depth 4 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1"`);
+      if (p) return p;
     }
   }
-
-  // 3. Common unix paths
-  for (const prefix of ['/usr/bin', '/usr/local/bin', join(HOME, '.local', 'bin')]) {
-    const candidate = join(prefix, tool);
-    if (existsSync(candidate)) return { path: candidate, source: classify(candidate) };
-  }
-
-  // 4. Android SDK (Linux/Mac)
-  for (const base of [join(HOME, 'Android', 'Sdk'), join(HOME, 'Library', 'Android', 'sdk')]) {
-    p = sh(`find "${base}" -name "${tool}" -type f 2>/dev/null | head -1`);
-    if (p) return { path: p, source: 'android-sdk' };
-  }
-
   return null;
 }
 
-function discover(tool) {
-  if (PLATFORM === 'win32') return discoverWin(tool);
-  return discoverUnix(tool);
+function detectTools(cmd) {
+  const known = ['adb', 'flutter', 'dart', 'git', 'node', 'npm', 'npx', 'scoop',
+    'brew', 'python', 'python3', 'pip', 'pip3', 'java', 'javac', 'gradle',
+    'docker', 'psql', 'sqlite3', 'make', 'cmake', 'code', 'gh', 'supabase'];
+  return known.filter(t => new RegExp(`\\b${t}\\b`).test(cmd));
 }
 
-// ── main ──────────────────────────────────────────────────────────────
-console.log(`🔍 dev-runner-setup (${PLATFORM}) — discovering tools...\n`);
+function extractPackageName(input, rule) {
+  const re = new RegExp('(?:' + rule.match + ')\\s+(\\S+)', 'i');
+  const m = input.match(re);
+  return m ? m[1] : '???';
+}
 
-if (!existsSync(AGENTS_DIR)) mkdirSync(AGENTS_DIR, { recursive: true });
-
-copyFileSync(TEMPLATE, join(AGENTS_DIR, 'dev-runner.md'));
-console.log('  ✓ Agent installed');
-
-const map = {};
-let found = 0;
-for (const tool of TOOLS) {
-  const r = discover(tool);
-  if (r && r.path) {
-    map[tool] = {
-      path: r.path.replace(/\\/g, '/'),
-      source: r.source,
-      category: CATEGORIES[tool] || 'other',
-    };
-    found++;
-    console.log(`  ✓ ${tool}`);
-  } else {
-    console.log(`  ✗ ${tool}`);
+function fillTemplate(tmpl, ctx) {
+  let result = tmpl;
+  result = result.replace(/\{package\}/g, extractPackageName(ctx.full, ctx.rule));
+  result = result.replace(/\{next\}/g, '');
+  result = result.replace(/\{python\}/g, PLATFORM === 'win32' ? 'python' : 'python3');
+  result = result.replace(/\{args\}/g, ' ' + ctx.match.split(/\s+/).slice(1).join(' '));
+  result = result.replace(/\{tool\}/g, ctx.match.split(/\s+/)[0]);
+  result = result.replace(/\{path\}/g, ctx.match.split(/\s+/).slice(1).join(' '));
+  if (result.includes('{var}')) {
+    const varMatch = ctx.full.match(/(?:export\s+)(\w+)=(\S+)/);
+    if (varMatch) result = result.replace('{var}', varMatch[1]).replace('{value}', varMatch[2]);
   }
+  return result.replace(/\s+/g, ' ').trim();
 }
 
-writeFileSync(MAP_FILE, JSON.stringify(map, null, 2));
-console.log(`\n📦 ${found}/${TOOLS.length} tools found → ${MAP_FILE}`);
-console.log('  Restart opencode to load the agent.\n');
+const TOOLS = ['adb', 'flutter', 'dart', 'git', 'node', 'npm', 'npx', 'scoop',
+  'gh', 'code', 'supabase', 'sqlite3', 'java', 'javac', 'gradle',
+  'python', 'python3', 'pip', 'pip3', 'docker', 'make'];
+
+const CATEGORIES = {
+  adb: 'android', emulator: 'android', sdkmanager: 'android',
+  flutter: 'flutter', dart: 'flutter',
+  git: 'vcs', gh: 'vcs',
+  node: 'node', npm: 'node', npx: 'node', yarn: 'node', pnpm: 'node',
+  supabase: 'database', psql: 'database', sqlite3: 'database',
+  code: 'editor', nvim: 'editor', vim: 'editor',
+  java: 'java', javac: 'java', gradle: 'java', mvn: 'java',
+  python: 'python', python3: 'python', pip: 'python', pip3: 'python',
+  docker: 'container', make: 'build',
+  scoop: 'package-manager', choco: 'package-manager', brew: 'package-manager', winget: 'package-manager',
+};
+
+function discoverAll() {
+  const map = {};
+  for (const tool of TOOLS) {
+    const p = findTool(tool);
+    if (p) map[tool] = { path: p.replace(/\\/g, '/'), source: classify(p), category: CATEGORIES[tool] || 'other' };
+  }
+  return map;
+}

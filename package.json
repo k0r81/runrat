@@ -1,13 +1,14 @@
 {
   "name": "runrat",
-  "version": "0.2.2",
-  "description": "🐀 A dev-tool scavenger rat — sniffs out every binary on your system and hoards them in a smart little map. Installs as an opencode subagent that learns new tools on the fly.",
+  "version": "0.3.0",
+  "description": "🐀 Dev-tool scavenger & command translator — finds tools, validates commands, fixes LLM mistakes before they hit the shell.",
   "bin": {
     "runrat": "./bin/setup"
   },
   "files": [
     "bin/",
     "templates/",
+    "knowledge/",
     "README.md",
     "SKILL.md"
   ],
@@ -15,6 +16,7 @@
     "opencode",
     "agent",
     "dev-tools",
+    "command-translator",
     "flutter",
     "adb",
     "tool-discovery",

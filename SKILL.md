@@ -1,68 +1,67 @@
-# 🐀 runrat — dev-tool scavenger
+# 🐀 runrat — dev-tool scavenger & command translator
 
-Finds and remembers where every dev tool lives on your machine. Scavenges PATH, package managers, SDKs — builds a smart map that agents can query.
+Finds tools. Translates commands. Learns from failures.
 
-## How it works
+LLM agents constantly generate wrong commands — `apt-get` on Windows, `&&` in PowerShell, invalid flags, Unix tools that don't exist. Runrat sits between the agent and the shell, translating broken commands into what actually works on this machine.
 
-1. **Setup** — `npx runrat` scans your system, creates a tool-map.json
-2. **Query** — agent reads the map. Tool missing? Scavenges. Found? Hoards it.
-3. **Repeat** — safe to re-run, always learns more
+## Install
 
-## Resolve any tool
-
-### 1. Check the map
-
-Read `.opencode/agents/tool-map.json`. Return `path` if found.
-
-### 2. Search the system
-
-Stop on first hit:
-
-**Linux / macOS:**
 ```bash
-which <tool> 2>/dev/null || command -v <tool>
-ls /opt/homebrew/bin/<tool> /usr/local/bin/<tool> 2>/dev/null
-ls /usr/bin/<tool> /usr/local/bin/<tool> ~/.local/bin/<tool> 2>/dev/null
-find ~/Android/Sdk ~/Library/Android/sdk -name "<tool>" -type f 2>/dev/null | head -1
+# Full bootstrap
+npx runrat
+
+# Or via skills.sh
+npx skills add k0r81/runrat
 ```
 
-**Windows:**
-```powershell
-where.exe <tool> 2>$null | Select-Object -First 1
-Get-ChildItem "$env:USERPROFILE\scoop\shims" -Filter "<tool>*" -ErrorAction SilentlyContinue | % FullName
-Get-ChildItem "$env:USERPROFILE\scoop\apps" -Filter "<tool>.exe" -Recurse -Depth 3 -ErrorAction SilentlyContinue | % FullName
-Get-ChildItem "$env:LOCALAPPDATA\Android\Sdk","$env:USERPROFILE\Android\Sdk" -Filter "<tool>.exe" -Recurse -Depth 4 -ErrorAction SilentlyContinue | % FullName
+## What it does
+
+```
+Agent: apt-get install postgresql && flutter test --coverage
+  ↓
+Runrat:
+  ⚡ apt-get → scoop (Windows)
+  ⚡ && → ; if ($?) { } (PowerShell)
+  ⚠ --coverage → --no-pub (valid Flutter flag)
+  ↓
+Correct: scoop install postgresql; if ($?) { flutter test --no-pub }
 ```
 
-### 3. Save learned tool
+## Knowledge base
 
-Add to `tool-map.json`:
+| File | Purpose |
+|------|---------|
+| `tool-map.json` | Where every tool lives (auto-discovered) |
+| `command-recipes.json` | Correct CLI syntax per OS (28 recipes) |
+| `translation-rules.json` | LLM mistake patterns → fixes (20 rules) |
 
-```json
-"toolname": {
-  "path": "/absolute/path",
-  "source": "scoop|brew|android-sdk|system|path",
-  "category": "..."
-}
+## CLI
+
+```bash
+runrat check "apt-get install foo"   # translate & validate
+runrat setup                         # full bootstrap
+runrat recipes                       # list known recipes
+runrat rules                         # list active translation rules
 ```
 
-### 4. Not found
+## Supported translations (Windows)
 
-"Tool `<tool>` not found. Searched: PATH, package manager dirs, Android SDK."
+| LLM writes | runrat corrects to |
+|-----------|-------------------|
+| `apt-get install X` | `scoop install X` |
+| `brew install X` | `scoop install X` |
+| `cmd1 && cmd2` | `cmd1; if ($?) { cmd2 }` |
+| `export VAR=val` | `$env:VAR = "val"` |
+| `pip install X` | `python -m pip install X` |
+| `ls -la` | `Get-ChildItem` |
+| `rm -rf dir` | `Remove-Item -Recurse -Force dir` |
+| `sudo ...` | *(removed)* |
+| `which X` | `where.exe X` |
 
-## Tool categories
+## Platforms
 
-| Category | Tools |
-|----------|-------|
-| `android` | adb, emulator, sdkmanager |
-| `flutter` | flutter, dart |
-| `vcs` | git, gh |
-| `node` | node, npm, npx, yarn, pnpm |
-| `python` | python, python3, pip, pip3 |
-| `java` | java, javac, gradle, mvn |
-| `database` | supabase, psql, sqlite3 |
-| `container` | docker, podman |
-| `editor` | code, nvim, vim |
-| `package-manager` | scoop, choco, brew, apt, winget |
-| `build` | make, cmake |
-| `other` | everything else |
+Windows (PowerShell + scoop), macOS (brew), Linux (apt/brew).
+
+## License
+
+MIT
