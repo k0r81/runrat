@@ -1,0 +1,24 @@
+{
+  "name": "runrat",
+  "version": "0.2.2",
+  "description": "🐀 A dev-tool scavenger rat — sniffs out every binary on your system and hoards them in a smart little map. Installs as an opencode subagent that learns new tools on the fly.",
+  "bin": {
+    "runrat": "./bin/setup"
+  },
+  "files": [
+    "bin/",
+    "templates/",
+    "README.md",
+    "SKILL.md"
+  ],
+  "keywords": [
+    "opencode",
+    "agent",
+    "dev-tools",
+    "flutter",
+    "adb",
+    "tool-discovery",
+    "cli"
+  ],
+  "license": "MIT"
+}

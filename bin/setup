@@ -1,0 +1,138 @@
+#!/usr/bin/env node
+const { execSync } = require('child_process');
+const { existsSync, mkdirSync, copyFileSync, writeFileSync } = require('fs');
+const { join } = require('path');
+const os = require('os');
+
+const PLATFORM = os.platform(); // 'win32' | 'darwin' | 'linux'
+const HOME = os.homedir();
+const AGENTS_DIR = join(process.cwd(), '.opencode', 'agents');
+const TEMPLATE = join(__dirname, '..', 'templates', 'dev-runner.md');
+const MAP_FILE = join(AGENTS_DIR, 'tool-map.json');
+
+// ── tools to discover ─────────────────────────────────────────────────
+const TOOLS = [
+  'adb', 'flutter', 'dart', 'git', 'node', 'npm', 'npx',
+  'gh', 'code', 'supabase', 'sqlite3', 'java', 'javac', 'gradle',
+  'python', 'python3', 'pip', 'pip3', 'docker', 'make',
+];
+
+const CATEGORIES = {
+  adb: 'android', emulator: 'android', sdkmanager: 'android',
+  flutter: 'flutter', dart: 'flutter',
+  git: 'vcs', gh: 'vcs',
+  node: 'node', npm: 'node', npx: 'node', yarn: 'node', pnpm: 'node',
+  supabase: 'database', psql: 'database', sqlite3: 'database',
+  code: 'editor', nvim: 'editor', vim: 'editor',
+  java: 'java', javac: 'java', gradle: 'java', mvn: 'java',
+  python: 'python', python3: 'python', pip: 'python', pip3: 'python',
+  docker: 'container', make: 'build',
+};
+
+// ── cross-platform helpers ────────────────────────────────────────────
+
+function sh(cmd) {
+  try { return execSync(cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim().split(/[\r\n]+/)[0]; }
+  catch { return null; }
+}
+
+function which(tool) {
+  if (PLATFORM === 'win32') return sh(`where.exe ${tool}`);
+  return sh(`which ${tool}`) || sh(`command -v ${tool}`);
+}
+
+function classify(path) {
+  if (!path) return '';
+  if (path.includes('scoop')) return 'scoop';
+  if (path.includes('Android') || path.includes('android')) return 'android-sdk';
+  if (path.includes('homebrew') || path.includes('/opt/homebrew')) return 'brew';
+  if (path.includes('/usr/bin') || path.includes('System32')) return 'system';
+  if (path.includes('/usr/local')) return 'local';
+  return 'path';
+}
+
+// ── platform-specific discovery ───────────────────────────────────────
+
+function discoverWin(tool) {
+  // 1. PATH
+  let p = which(tool);
+  if (p) return { path: p, source: classify(p) };
+
+  // 2. Scoop shims
+  p = sh(`powershell -NoProfile -Command "Get-ChildItem -LiteralPath '${join(HOME, 'scoop', 'shims')}' -Filter '${tool}*' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1"`);
+  if (p) return { path: p, source: 'scoop' };
+
+  // 3. Scoop apps deep
+  p = sh(`powershell -NoProfile -Command "Get-ChildItem -LiteralPath '${join(HOME, 'scoop', 'apps')}' -Filter '${tool}.exe' -Recurse -Depth 3 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1"`);
+  if (p) return { path: p, source: 'scoop' };
+
+  // 4. Android SDK
+  for (const base of [join(HOME, 'Android', 'Sdk'), join(HOME, 'AppData', 'Local', 'Android', 'Sdk')]) {
+    p = sh(`powershell -NoProfile -Command "Get-ChildItem -LiteralPath '${base}' -Filter '${tool}.exe' -Recurse -Depth 4 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1"`);
+    if (p) return { path: p, source: 'android-sdk' };
+  }
+
+  return null;
+}
+
+function discoverUnix(tool) {
+  // 1. PATH
+  let p = which(tool);
+  if (p) return { path: p, source: classify(p) };
+
+  // 2. Brew (macOS)
+  if (PLATFORM === 'darwin') {
+    for (const prefix of ['/opt/homebrew/bin', '/usr/local/bin']) {
+      const candidate = join(prefix, tool);
+      if (existsSync(candidate)) return { path: candidate, source: 'brew' };
+    }
+  }
+
+  // 3. Common unix paths
+  for (const prefix of ['/usr/bin', '/usr/local/bin', join(HOME, '.local', 'bin')]) {
+    const candidate = join(prefix, tool);
+    if (existsSync(candidate)) return { path: candidate, source: classify(candidate) };
+  }
+
+  // 4. Android SDK (Linux/Mac)
+  for (const base of [join(HOME, 'Android', 'Sdk'), join(HOME, 'Library', 'Android', 'sdk')]) {
+    p = sh(`find "${base}" -name "${tool}" -type f 2>/dev/null | head -1`);
+    if (p) return { path: p, source: 'android-sdk' };
+  }
+
+  return null;
+}
+
+function discover(tool) {
+  if (PLATFORM === 'win32') return discoverWin(tool);
+  return discoverUnix(tool);
+}
+
+// ── main ──────────────────────────────────────────────────────────────
+console.log(`🔍 dev-runner-setup (${PLATFORM}) — discovering tools...\n`);
+
+if (!existsSync(AGENTS_DIR)) mkdirSync(AGENTS_DIR, { recursive: true });
+
+copyFileSync(TEMPLATE, join(AGENTS_DIR, 'dev-runner.md'));
+console.log('  ✓ Agent installed');
+
+const map = {};
+let found = 0;
+for (const tool of TOOLS) {
+  const r = discover(tool);
+  if (r && r.path) {
+    map[tool] = {
+      path: r.path.replace(/\\/g, '/'),
+      source: r.source,
+      category: CATEGORIES[tool] || 'other',
+    };
+    found++;
+    console.log(`  ✓ ${tool}`);
+  } else {
+    console.log(`  ✗ ${tool}`);
+  }
+}
+
+writeFileSync(MAP_FILE, JSON.stringify(map, null, 2));
+console.log(`\n📦 ${found}/${TOOLS.length} tools found → ${MAP_FILE}`);
+console.log('  Restart opencode to load the agent.\n');
